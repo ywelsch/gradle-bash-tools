@@ -1,0 +1,28 @@
+apply plugin: BashCompletionPlugin
+
+import java.security.MessageDigest
+
+class BashCompletionPlugin implements Plugin<Gradle> {
+    void apply(Gradle gradle) {
+        gradle.rootProject {
+            def rootDirEncodedHex = MessageDigest.getInstance("MD5").digest(projectDir.absolutePath.bytes).encodeHex().toString()
+            def bashCompletionFolder = new File(new File(gradle.getGradleUserHomeDir(), 'bash'), rootDirEncodedHex)
+            def autoCompleteSuggestionsFile = new File(bashCompletionFolder, 'gradle-autocomplete')
+            def projectMappingsFile = new File(bashCompletionFolder, 'gradle-projects')
+
+            tasks.create('bashCompletion') {
+                doLast {
+                    // create file with all tasks
+                    def allTaskNames = getAllTasks(true).collectMany { proj, taskSet -> taskSet.collect { it.path } }
+                    autoCompleteSuggestionsFile.parentFile.mkdirs()
+                    autoCompleteSuggestionsFile.text = allTaskNames.sort().unique().join('\n')
+
+                    // create file that maps project path to relative directory
+                    def projectMappings = allprojects.collect { "${it.path}=${it.rootProject.relativePath(it.projectDir.path)}" }
+                    projectMappingsFile.parentFile.mkdirs()
+                    projectMappingsFile.text = projectMappings.join('\n')
+                }
+            }
+        }
+    }
+}
